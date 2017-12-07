@@ -1,0 +1,6 @@
+Heating:
+  name: Termostato soggiorno
+  entities:
+    - binary_sensor.heating
+    - climate.besmart_thermostat
+
