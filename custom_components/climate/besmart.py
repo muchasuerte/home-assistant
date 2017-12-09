@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Support for Riello's Besmart thermostats.
 
@@ -26,7 +27,7 @@ from homeassistant.components.climate import (ClimateDevice,
     SUPPORT_TARGET_TEMPERATURE, SUPPORT_AWAY_MODE, SUPPORT_OPERATION_MODE, ATTR_OPERATION_LIST, SUPPORT_FAN_MODE,
     SUPPORT_AUX_HEAT, SUPPORT_TARGET_TEMPERATURE_HIGH, SUPPORT_TARGET_TEMPERATURE_LOW)
 from homeassistant.components.climate import (ClimateDevice, PLATFORM_SCHEMA)
-from homeassistant.const import (CONF_NAME, CONF_USERNAME, CONF_PASSWORD, CONF_ROOM,
+from homeassistant.const import (CONF_NAME, CONF_USERNAME, CONF_PASSWORD, CONF_ROOM, ATTR_STATE,
                                  TEMP_CELSIUS, ATTR_TEMPERATURE, TEMP_FAHRENHEIT)
 
 from homeassistant.const import STATE_ON, STATE_OFF
@@ -50,10 +51,14 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_ROOM): cv.string,
 })
 
+SUPPORT_FLAGS = (SUPPORT_TARGET_TEMPERATURE | SUPPORT_OPERATION_MODE)
+#            SUPPORT_TARGET_TEMPERATURE_HIGH | SUPPORT_TARGET_TEMPERATURE_LOW |
+#            SUPPORT_AWAY_MODE)
+
 
 # pylint: disable=unused-argument
 def setup_platform(hass, config, add_devices, discovery_info=None):
-    """Setup the Toon thermostats."""
+    """Setup the Besmart thermostats."""
 
     add_devices([Thermostat(config.get(CONF_NAME), config.get(CONF_USERNAME),
                             config.get(CONF_PASSWORD), config.get(CONF_ROOM))])
@@ -62,14 +67,23 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
 # pylint: disable=abstract-method
 # pylint: disable=too-many-instance-attributes
 class Thermostat(ClimateDevice):
-    """Representation of a Toon thermostat."""
+    """Representation of a Besmart thermostat."""
     BASE_URL = 'http://www.besmart-home.com/Android_vokera_20160516/'
     LOGIN = 'login.php'
-    ROOMLIST = 'getRoomList.php?deviceId={0}'
+    ROOM_MODE = 'setRoomMode.php'
+    ROOM_LIST = 'getRoomList.php?deviceId={0}'
+    ROOM_TEMP = 'setRoomTemp.php'
+    ROOM_ECON_TEMP = 'setEconTemp.php'
+    ROOM_FROST_TEMP = 'setFrostTemp.php'
+    ROOM_CONF_TEMP = 'setComfTemp.php'
+    AUTO = 'Auto'
+    MANUAL_CONFORT = 'Manuale - Confort'
+    HOLIDAY_ECONOMY = 'Holiday - Economy'
+    PARTY_CONFORT = 'Party - Confort'
+    SPENTO_ANTIGELO = 'Spento - Antigelo'
 
     def __init__(self, name, username, password, room):
         """Initialize the thermostat."""
-        self._data = None
         self._name = name
         self._username = username
         self._password = password
@@ -78,31 +92,113 @@ class Thermostat(ClimateDevice):
         self._current_setpoint = 0
         self._current_state = -1
         self._current_operation = ''
-        self._set_state = 0
+        self._current_unit = 0
+        self._tempSetMark = 0
+        self._operation_list = [self.AUTO,
+                                self.MANUAL_CONFORT,
+                                self.HOLIDAY_ECONOMY,
+                                self.PARTY_CONFORT,
+                                self.SPENTO_ANTIGELO]
         self._heating_state = False
-        self._operation_list = ['Auto', 'Confort', 'Holiday', 'Party', 'Off']
         self._s = requests.Session()
         self._device = None
+        self._roomData = None
         _LOGGER.debug("Init called")
         self.update()
 
-    def read(self):
+    def _login(self):
         if not self._device:
-                resp = self._s.post(self.BASE_URL + self.LOGIN,  data={
-                    'un':self._username,
-                    'pwd': self._password,
-                    'version': '32'})
-                if resp.ok:
-                    self._device = resp.json()
+            resp = self._s.post(self.BASE_URL + self.LOGIN,  data={
+                'un':self._username,
+                'pwd': self._password,
+                'version': '32'})
+            if resp.ok:
+                self._device = resp.json()
 
-        resp = self._s.post(self.BASE_URL + self.ROOMLIST.format(self._device.get('deviceId')))
+    def _fahToCent(self, temp):
+        return str(round((temp - 32.0) / 1.8, 1))
+
+    def _centToFah(self, temp):
+        return str(round(32.0 + (temp * 1.8), 1))
+
+    def _read(self):
+        self._login()
+
+        resp = self._s.post(self.BASE_URL + self.ROOM_LIST.format(self._device.get('deviceId')))
         if resp.ok:
             rooms = resp.json()
             for room in rooms:
                 if room.get('id') and room.get('name').lower() == self._room.lower():
+                    self._roomData = room
                     return room
 
         return None
+
+    def _setRoomMode(self, mode):
+        if not self._device:
+            self._login()
+
+        if not self._roomData:
+            self._read()
+
+        if self._device and self._roomData:
+            data = {
+                'therId': self._roomData.get('therId'),
+                'deviceId': self._device.get('deviceId'),
+                'mode': mode}
+
+            resp = self._s.post(self.BASE_URL + self.ROOM_MODE, data=data)
+            if resp.ok:
+                msg = resp.json()
+                _LOGGER.debug("resp: {}".format(msg))
+                if msg.get('error') == 1:
+                    return True
+
+        return None
+
+    def _setRoomTemp(self, new_temp):
+        if not self._device:
+            self._login()
+
+        if not self._roomData:
+            self._read()
+
+        url = self.BASE_URL + self.ROOM_TEMP
+        thModel = self._roomData.get('thModel')
+        if thModel == '3' or thModel == '5':
+            if self._tempSetMark == 0:
+                url = self.BASE_URL + self.ROOM_FROST_TEMP
+            elif self._tempSetMark == 1:
+                url = self.BASE_URL + self.ROOM_ECON_TEMP
+            elif self._tempSetMark == 2:
+                url = self.BASE_URL + self.ROOM_CONF_TEMP
+
+        if self._current_unit == '0':
+            tpCInt, tpCIntFloat = str(new_temp).split('.')
+        else:
+            tpCInt, tpCIntFloat = self._fahToCent(new_temp).split('.')
+
+        data = {
+           'therId': self._roomData.get('therId'),
+           'deviceId': self._device.get('deviceId'),
+           'tempSet': tpCInt + "",
+           'tempSetFloat': tpCIntFloat + "",
+        }
+        _LOGGER.debug("url: {}".format(url))
+        _LOGGER.debug("data: {}".format(data))
+        resp = self._s.post(url, data=data)
+        if resp.ok:
+            msg = resp.json()
+            _LOGGER.debug("resp: {}".format(msg))
+            if msg.get('error') == 1:
+                return True
+
+        return None
+
+    @property
+    def target_temperature_step(self):
+        """Return the supported step of target temperature."""
+        return 0.2
 
     @property
     def state(self):
@@ -112,30 +208,40 @@ class Thermostat(ClimateDevice):
 
         return STATE_OFF
 
-    # @property
-    # def should_poll(self):
-    #     """Polling needed for thermostat."""
-    #     _LOGGER.debug("Should_Poll called")
-    #     return True
+    @property
+    def should_poll(self):
+        """Polling needed for thermostat."""
+        _LOGGER.debug("Should_Poll called")
+        return True
 
     @property
     def supported_features(self):
         """Return the list of supported features."""
-        return (
-            SUPPORT_TARGET_TEMPERATURE | SUPPORT_OPERATION_MODE | SUPPORT_AUX_HEAT)
-#            SUPPORT_TARGET_TEMPERATURE_HIGH | SUPPORT_TARGET_TEMPERATURE_LOW |
-#            SUPPORT_AWAY_MODE)
+        return SUPPORT_FLAGS
 
     def update(self):
         """Update the data from the thermostat."""
-        data = self.read()
-        self._current_setpoint = float(data.get('tempSet'))
-        self._current_temp = float(data.get('tempNow'))
-        self._heating_state = data.get('heating', '') == '1'
-        self._current_state = int(data.get('workMode'))
-        self._current_unit = data.get('unit')
         _LOGGER.debug("Update called")
-        _LOGGER.debug(data)
+        data = self._read()
+        if data:
+            self._current_setpoint = float(data.get('tempSet'))
+            self._current_temp = float(data.get('tempNow'))
+            self._heating_state = data.get('heating', '') == '1'
+            self._current_state = int(data.get('workMode'))
+            self._current_unit = data.get('unit')
+            _LOGGER.debug(data)
+            if self._current_state == 0:
+                pass # Automode
+            elif self._current_state == 1:  # Manual - Confort
+                self._tempSetMark = 2
+            elif self._current_state == 2:  # Holiday - Economy
+                self._tempSetMark = 1
+            elif self._current_state == 3:  # Party - Confort
+                self._tempSetMark = 2
+            elif self._current_state == 4:  # Spento - Antigelo
+                self._tempSetMark = 0
+            elif self._current_state == 5:
+                self._tempSetMark = 3
 
     @property
     def name(self):
@@ -163,13 +269,6 @@ class Thermostat(ClimateDevice):
         return self._current_temp
 
     @property
-    def is_aux_heat_on(self):
-        """Return true if aux heater."""
-        _LOGGER.debug("XXXXXXXX")
-        _LOGGER.debug(self._heating_state)
-        return self._heating_state
-
-    @property
     def target_temperature(self):
         """Return the temperature we try to reach."""
         return self._current_setpoint
@@ -178,7 +277,7 @@ class Thermostat(ClimateDevice):
     def current_operation(self):
         """Return the current state of the thermostat."""
         state = self._current_state
-        if state in (0, 1, 2, 3, 4):
+        if state in {0, 1, 2, 3, 4}:
             return self._operation_list[state]
         else:
             return STATE_UNKNOWN
@@ -189,39 +288,28 @@ class Thermostat(ClimateDevice):
         return self._operation_list
 
     def set_operation_mode(self, operation_mode):
-        """Set HVAC mode (comfort, home, sleep, away, holiday)."""
-        if operation_mode == "Auto":
+        """Set HVAC mode (comfort, home, sleep, Party, Off)."""
+
+        if operation_mode.startswith(self.AUTO):
             mode = 0
-        elif operation_mode == "Confort":
+        elif operation_mode == self.MANUAL_CONFORT:
             mode = 1
-        elif operation_mode == "Holiday":
+        elif operation_mode == self.HOLIDAY_ECONOMY:
             mode = 2
-        elif operation_mode == "Party":
+        elif operation_mode == self.PARTY_CONFORT:
             mode = 3
-        elif operation_mode == "Off":
+        elif operation_mode == self.SPENTO_ANTIGELO:
             mode = 4
 
-        # self._data = self.do_api_request(BASE_URL.format(
-        #     self._host,
-        #     self._port,
-        #     '/happ_thermstat?action=changeSchemeState'
-        #     '&state=2&temperatureState='+str(mode)))
-        #
-        _LOGGER.debug("Set operation mode=%s(%s)", str(operation_mode),
-                      str(mode))
+        self._setRoomMode(mode)
+        _LOGGER.debug("Set operation mode=%s(%s)", str(operation_mode), str(mode))
 
     def set_temperature(self, **kwargs):
         """Set new target temperature."""
-        temperature = kwargs.get(ATTR_TEMPERATURE)*100
+        temperature = kwargs.get(ATTR_TEMPERATURE)
+        _LOGGER.debug("Set temperature=%s", str(temperature))
         if temperature is None:
             return
         else:
-            pass
-            # self._data = self.do_api_request(BASE_URL.format(
-            #     self._host,
-            #     self._port,
-            #     '/happ_thermstat?action=setSetpoint'
-            #     '&Setpoint='+str(temperature)))
+            self._setRoomTemp(temperature)
             _LOGGER.debug("Set temperature=%s", str(temperature))
- 
-
