@@ -24,7 +24,7 @@ config:
 
 http:
   # Secrets are defined in the file secrets.yaml
-  # api_password: !secret http_password
+  api_password: !secret http_password
   # Uncomment this if you are using SSL/TLS, running in Docker container, etc.
   # base_url: example.duckdns.org:8123
 
@@ -38,7 +38,7 @@ updater:
   # include_used_components: true
 
 # Discover some devices automatically
-discovery:
+#discovery:
 
 # Allows you to issue voice commands from the frontend in enabled browsers
 conversation:
@@ -62,16 +62,6 @@ weather:
   - platform: openweathermap
     api_key: !secret openweathermap_api_key
 
-# Weather prediction
-sensor:
-  - platform: openweathermap
-    api_key: !secret openweathermap_api_key
-    forecast: true
-    monitored_conditions:
-      - weather
-      - temperature
-      - rain
-
 # Text to speech
 #tts:
 #  - platform: google
@@ -91,9 +81,6 @@ binary_sensor:
         friendly_name: "Heating"
         value_template: "{{ is_state('climate.besmart_thermostat', 'on') }}"
 
-group: !include groups.yaml
-automation: !include automations.yaml
-script: !include scripts.yaml
 
 logger:
   default: info
@@ -113,5 +100,17 @@ history_graph:
     name: Temperatura Esterna
     entities:
       - sensor.owm_temperature
+      - sensor.temperatura_cucina
     hours_to_show: 1
     refresh: 60
+
+mqtt:
+  
+##########################
+# Includes
+##########################
+sensor: !include sensors.yaml
+group: !include groups.yaml
+automation: !include automations.yaml
+script: !include scripts.yaml
+
