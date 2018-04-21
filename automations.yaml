@@ -1,1 +1,16 @@
-[]
+- alias: 'Water the plants'
+  trigger:
+    platform: time
+    at: '23:10:00'
+  action:
+    - service: switch.turn_on
+      entity_id: switch.pompa
+
+- alias: 'Stop watering the plants'
+  trigger:
+    platform: time
+    at: '23:15:00'
+  action:
+    - service: switch.turn_off
+      entity_id: switch.pompa
+

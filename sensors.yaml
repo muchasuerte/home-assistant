@@ -29,3 +29,22 @@
   name: "Umidità Cucina"
   unit_of_measurement: '%'
   icon: mdi:water-percent
+
+- platform: mqtt
+  state_topic: "/home/garden/temperature"
+  name: "Temperatura Giardino"
+  unit_of_measurement: '°C'
+
+# platform: template
+#  sensors:
+#    solar_angle:
+#   friendly_name: "Sun angle"
+#    unit_of_measurement: 'degrees'
+#    value_template: "{{ states.sun.sun.attributes.elevation }}"
+
+#- platform: mqtt
+#  state_topic: "/home/garden/humidity"
+#  name: "Umidità Giardino"
+#  unit_of_measurement: '%'
+#  icon: mdi:water-percent
+

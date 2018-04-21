@@ -90,26 +90,24 @@ logger:
 
 history_graph:
   gr1:
-    name: Temperatura Soggiorno
+    name: Temperature
     entities:
       - binary_sensor.heating
-      - climate.besmart_thermostat
-    hours_to_show: 1
-    refresh: 60
-  gr2:
-    name: Temperatura Esterna
-    entities:
-      - sensor.owm_temperature
+      - sensor.temperatura_giardino
       - sensor.temperatura_cucina
+      - climate.besmart_thermostat
+#.attributes.current_temperature
     hours_to_show: 1
     refresh: 60
 
 mqtt:
+
   
 ##########################
 # Includes
 ##########################
 sensor: !include sensors.yaml
+switch: !include switches.yaml
 group: !include groups.yaml
 automation: !include automations.yaml
 script: !include scripts.yaml

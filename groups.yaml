@@ -1,11 +1,22 @@
 Heating:
   name: Termostato soggiorno
+  control: hidden
   entities:
     - binary_sensor.heating
     - climate.besmart_thermostat
 
 cucina:
  name: Cucina
+ control: hidden
  entities:
     - sensor.temperatura_cucina
     - sensor.umidita_cucina
+
+giardino:
+ name: Giardino
+ control: hidden
+ entities:
+    - sensor.temperatura_giardino
+    - switch.pompa
+#    - sensor.umidita_giardino
+
