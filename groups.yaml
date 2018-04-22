@@ -18,5 +18,5 @@ giardino:
  entities:
     - sensor.temperatura_giardino
     - switch.pompa
-#    - sensor.umidita_giardino
+    - sensor.umidita_giardino
 

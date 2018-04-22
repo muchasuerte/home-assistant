@@ -42,9 +42,9 @@
 #    unit_of_measurement: 'degrees'
 #    value_template: "{{ states.sun.sun.attributes.elevation }}"
 
-#- platform: mqtt
-#  state_topic: "/home/garden/humidity"
-#  name: "Umidità Giardino"
-#  unit_of_measurement: '%'
-#  icon: mdi:water-percent
+- platform: mqtt
+  state_topic: "/home/garden/humidity"
+  name: "Umidità Giardino"
+  unit_of_measurement: '%'
+  icon: mdi:water-percent
 
