@@ -1,0 +1,18 @@
+- platform: mqtt
+  name: "Pompa"
+  state_topic: "/home/garden/relay/0"
+  command_topic: "/home/garden/relay/0/set"
+  payload_on: 1
+  payload_off: 0
+  optimistic: false
+  qos: 0
+  retain: true
+
+- platform: mqtt
+  name: "Interruttore Cucina"
+  state_topic: "/home/kitchen/relay/0"
+  command_topic: "/home/kitchen/relay/0/set"
+  payload_on: 1
+  payload_off: 0
+  optimistic: false
+

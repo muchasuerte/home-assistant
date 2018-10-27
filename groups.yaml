@@ -11,6 +11,7 @@ cucina:
  entities:
     - sensor.temperatura_cucina
     - sensor.umidita_cucina
+    - switch.interruttore_cucina
 
 giardino:
  name: Giardino
