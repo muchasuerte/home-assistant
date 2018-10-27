@@ -49,6 +49,7 @@ history:
 recorder:
   purge_interval: 2
   purge_keep_days: 30
+  db_url: sqlite:////home/homeassistant/home-assistant_v2.db
 
 # View all events in a logbook
 logbook:
@@ -101,7 +102,7 @@ history_graph:
     refresh: 60
 
 mqtt:
-
+  password: !secret mqtt_password
   
 ##########################
 # Includes
