@@ -1,15 +1,16 @@
-- alias: 'Water the plants'
+- id: start_watering
+  alias: 'Avvio irrigazione giardino'
   trigger:
-    platform: time
-    at: '07:10:00'
+   - platform: time
+     at: '07:10:00'
   action:
     - service: switch.turn_on
       entity_id: switch.pompa
-
-- alias: 'Stop watering the plants'
+- id: stop_watering
+  alias: 'Stop irrigazione giardino'
   trigger:
-    platform: time
-    at: '07:15:00'
+    - platform: time
+      at: '07:15:00'
   action:
     - service: switch.turn_off
       entity_id: switch.pompa
