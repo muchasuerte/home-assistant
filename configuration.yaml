@@ -112,4 +112,6 @@ switch: !include switches.yaml
 group: !include groups.yaml
 automation: !include automations.yaml
 script: !include scripts.yaml
+zwave:
+  usb_path: /dev/zwave
 
