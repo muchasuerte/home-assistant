@@ -86,6 +86,8 @@ binary_sensor:
 logger:
   default: info
   logs:
+    homeassistant.core: debug
+    asyncio: debug
     custom_components.climate.besmart: debug
 
 
@@ -103,7 +105,11 @@ history_graph:
 
 mqtt:
   password: !secret mqtt_password
-  
+
+duckdns:
+  domain: !secret duckdns_domain
+  access_token: !secret duckdns_token
+ 
 ##########################
 # Includes
 ##########################
