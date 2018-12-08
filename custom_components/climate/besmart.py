@@ -81,6 +81,8 @@ class Besmart(object):
     LOGIN = 'login.php'
     ROOM_MODE = 'setRoomMode.php'
     ROOM_LIST = 'getRoomList.php?deviceId={0}'
+    ROOM_DATA = 'getRoomData196.php?therId={0}&deviceId={1}'
+    ROOM_PROGRAM = 'getProgram.php?roomId={0}'
     ROOM_TEMP = 'setRoomTemp.php'
     ROOM_ECON_TEMP = 'setEconTemp.php'
     ROOM_FROST_TEMP = 'setFrostTemp.php'
@@ -114,7 +116,8 @@ class Besmart(object):
             self._device = None
 
     def rooms(self):
-        self.login()
+        if not self._device:
+            self.login()
         try:
             if self._device:
                 resp = self._s.post(
@@ -126,6 +129,36 @@ class Besmart(object):
                     return self._rooms
         except requests.exceptions.HTTPError as ex:
             _LOGGER.error(ex)
+            self._device = None
+        return None
+
+    def roomdata(self, room):
+        self.login()
+        try:
+            if self._device:
+                resp = self._s.get(
+                        self.BASE_URL + self.ROOM_DATA.format(
+                            room.get('therId'),
+                            self._device.get('deviceId')),
+                        timeout=self._timeout)
+                if resp.ok:
+                    return resp.json()
+        except requests.exceptions.HTTPError as ex:
+            _LOGGER.error(ex)
+            self._device = None
+        return None
+
+    def program(self, room):
+        self.login()
+        try:
+            resp = self._s.get(
+                    self.BASE_URL + self.ROOM_PROGRAM.format(room.get('id')),
+                    timeout=self._timeout)
+            if resp.ok:
+                return resp.json()
+        except requests.exceptions.HTTPError as ex:
+            _LOGGER.error(ex)
+            self._device = None
         return None
 
     def roomByName(self, name):
@@ -133,11 +166,7 @@ class Besmart(object):
             self.rooms()
 
         if self._rooms:
-            try:
-                return self._rooms.get(name.lower())
-            except requests.exceptions.HTTPError as ex:
-                _LOGGER.error(ex)
-
+            return self.roomdata(self._rooms.get(name.lower()))
         return None
 
     def setRoomMode(self, room_name, mode):
@@ -200,7 +229,7 @@ class Besmart(object):
 # pylint: disable=too-many-instance-attributes
 class Thermostat(ClimateDevice):
     """Representation of a Besmart thermostat."""
-    # BeSmart thModel
+    # BeSmart thModel = 5
     # BeSmart WorkMode
     AUTO = 0 # 'Auto'
     MANUAL = 1  # 'Manuale - Confort'
@@ -238,12 +267,16 @@ class Thermostat(ClimateDevice):
         self._room_name = room
         self._cl = client
         self._current_temp = 0
-        self._current_setpoint = 0
-        self._current_state = -1
+        self._current_state = self.IDLE
         self._current_operation = ''
         self._current_unit = 0
         self._tempSetMark = 0
         self._heating_state = False
+        self._battery = 0
+        self._frostT = 0
+        self._saveT = 0
+        self._comfT = 0
+
 
     @property
     def target_temperature_step(self):
@@ -269,17 +302,43 @@ class Thermostat(ClimateDevice):
         """Return the list of supported features."""
         return SUPPORT_FLAGS
 
+    def get_target_temperature(self):
+        if self._current_state == self.AUTO:
+            if self._tempSetMark == '2':
+                return self._comfT
+            elif self._tempSetMark == '1':
+                return self._saveT
+            else:
+                return self._frostT
+        elif self._current_state in (self.MANUAL, self.PARTY):
+            return self._comfT
+        elif self._current_state == self.ECONOMY:
+            return self._saveT
+        else:
+            return self._frostT
+
     def update(self):
         """Update the data from the thermostat."""
         _LOGGER.debug("Update called")
         data = self._cl.roomByName(self._room_name)
-        if data:
-            self._current_setpoint = float(data.get('tempSet'))
+        if data and data.get('error') == 0:
+            # from Sunday (0) to Saturday (6)
+            today = datetime.today().isoweekday() % 7
+            # 48 slot per day
+            index = datetime.today().hour * 2 + (1 if datetime.today().minute > 30 else 0)
+            programWeek = data['programWeek']
+            # delete programWeek to have less noise on debug output
+            del data['programWeek']
+            _LOGGER.debug(data)
+            self._tempSetMark = programWeek[today][index]
+            self._battery = data.get('battery', 0)
+            self._frostT = float(data.get('frostT'))
+            self._saveT = float(data.get('saveT'))
+            self._comfT = float(data.get('comfT'))
             self._current_temp = float(data.get('tempNow'))
             self._heating_state = data.get('heating', '') == '1'
-            self._current_state = int(data.get('workMode'))
-            self._current_unit = data.get('unit')
-            _LOGGER.debug(data)
+            self._current_state = int(data.get('mode'))
+            self._current_unit = data.get('tempUnit')
 
     @property
     def name(self):
@@ -309,12 +368,20 @@ class Thermostat(ClimateDevice):
     @property
     def target_temperature(self):
         """Return the temperature we try to reach."""
-        return self._current_setpoint
+        return self.get_target_temperature()
 
     @property
     def current_operation(self):
         """Return the current state of the thermostat."""
-        return self.MODE_BESMART_TO_HA.get(self._current_state, STATE_UNKNOWN)
+        state = self.MODE_BESMART_TO_HA.get(self._current_state, STATE_UNKNOWN)
+        if state == 'auto':
+            if self._tempSetMark == '2':
+                return state + ' - Confort'
+            elif self._tempSetMark == '1':
+                return state + ' - Eco'
+            else:
+                return state + ' - NoFrost'
+        return state
 
     @property
     def operation_list(self):
@@ -336,11 +403,15 @@ class Thermostat(ClimateDevice):
             return
         else:
             if self._current_state == self.AUTO:
-                self._cl.setRoomConfortTemp(self._room_name, temperature)
+                if self._tempSetMark == '2':
+                    self._cl.setRoomConfortTemp(self._room_name, temperature)
+                elif self._tempSetMark == '1':
+                    self._cl.setRoomECOTemp(self._room_name, temperature)
+                else:
+                    self._cl.setRoomFrostTemp(self._room_name, temperature)
             elif self._current_state in (self.MANUAL, self.PARTY):
                 self._cl.setRoomConfortTemp(self._room_name, temperature)
             elif self._current_state == self.ECONOMY:
                 self._cl.setRoomECOTemp(self._room_name, temperature)
             else:
                 self._cl.setRoomFrostTemp(self._room_name, temperature)
-            _LOGGER.debug("Set temperature=%s", str(temperature))
