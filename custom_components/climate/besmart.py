@@ -238,7 +238,9 @@ class Thermostat(ClimateDevice):
     IDLE = 4  # 'Spento - Antigelo'
 
     MODE_HA_TO_BESMART = {
-        STATE_AUTO: AUTO,
+        STATE_AUTO + ' - Confort': AUTO,
+        STATE_AUTO + ' - Eco': AUTO,
+        STATE_AUTO + ' - NoFrost': AUTO,
         STATE_MANUAL: MANUAL,
         STATE_ECO: ECONOMY,
         STATE_IDLE: IDLE
@@ -276,7 +278,7 @@ class Thermostat(ClimateDevice):
         self._frostT = 0
         self._saveT = 0
         self._comfT = 0
-
+        self.update()
 
     @property
     def target_temperature_step(self):
