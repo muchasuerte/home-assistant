@@ -175,7 +175,7 @@ class Besmart(object):
         if self._device and room:
             data = {
                 'deviceId': self._device.get('deviceId'),
-                'therId': room.get('therId'),
+                'therId': room.get('roomMark'),
                 'mode': mode}
 
             resp = self._s.post(self.BASE_URL + self.ROOM_MODE,
