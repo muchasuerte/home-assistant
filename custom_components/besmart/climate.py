@@ -29,9 +29,12 @@ import voluptuous as vol
 
 from homeassistant.components.climate import (ClimateDevice, PLATFORM_SCHEMA)
 from homeassistant.components.climate.const import (ATTR_TARGET_TEMP_HIGH,
-		ATTR_TARGET_TEMP_LOW,
-    SUPPORT_TARGET_TEMPERATURE, SUPPORT_AWAY_MODE, SUPPORT_OPERATION_MODE, ATTR_OPERATION_LIST, SUPPORT_FAN_MODE,
-    SUPPORT_AUX_HEAT, SUPPORT_TARGET_TEMPERATURE_HIGH, SUPPORT_TARGET_TEMPERATURE_LOW)
+                                                    STATE_AUTO, STATE_IDLE, STATE_MANUAL, STATE_ECO, STATE_COOL,
+                                                    STATE_HEAT, ATTR_TARGET_TEMP_LOW,
+                                                    SUPPORT_TARGET_TEMPERATURE, SUPPORT_AWAY_MODE,
+                                                    SUPPORT_OPERATION_MODE, ATTR_OPERATION_LIST, SUPPORT_FAN_MODE,
+                                                    SUPPORT_AUX_HEAT, SUPPORT_TARGET_TEMPERATURE_HIGH,
+                                                    SUPPORT_TARGET_TEMPERATURE_LOW)
 from homeassistant.const import (CONF_NAME, CONF_USERNAME, CONF_PASSWORD, CONF_ROOM, ATTR_STATE,
                                  TEMP_CELSIUS, ATTR_TEMPERATURE, TEMP_FAHRENHEIT)
 
@@ -59,6 +62,8 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
 })
 
 SUPPORT_FLAGS = (SUPPORT_TARGET_TEMPERATURE | SUPPORT_OPERATION_MODE)
+
+
 #            SUPPORT_TARGET_TEMPERATURE_HIGH | SUPPORT_TARGET_TEMPERATURE_LOW |
 #            SUPPORT_AWAY_MODE)
 
@@ -67,7 +72,7 @@ SUPPORT_FLAGS = (SUPPORT_TARGET_TEMPERATURE | SUPPORT_OPERATION_MODE)
 def setup_platform(hass, config, add_devices, discovery_info=None):
     """Setup the Besmart thermostats."""
     client = Besmart(config.get(CONF_USERNAME), config.get(CONF_PASSWORD))
-    client.rooms() # force init
+    client.rooms()  # force init
     add_devices([Thermostat(config.get(CONF_NAME), config.get(CONF_ROOM), client)])
 
 
@@ -85,7 +90,7 @@ class Besmart(object):
     ROOM_ECON_TEMP = 'setEconTemp.php'
     ROOM_FROST_TEMP = 'setFrostTemp.php'
     ROOM_CONF_TEMP = 'setComfTemp.php'
- 
+
     def __init__(self, username, password):
         """Initialize the thermostat."""
         self._username = username
@@ -94,7 +99,7 @@ class Besmart(object):
         self._rooms = None
         self._timeout = 30
         self._s = requests.Session()
- 
+
     def _fahToCent(self, temp):
         return str(round((temp - 32.0) / 1.8, 1))
 
@@ -103,8 +108,8 @@ class Besmart(object):
 
     def login(self):
         try:
-            resp = self._s.post(self.BASE_URL + self.LOGIN,  data={
-                'un':self._username,
+            resp = self._s.post(self.BASE_URL + self.LOGIN, data={
+                'un': self._username,
                 'pwd': self._password,
                 'version': '32'}, timeout=self._timeout)
             if resp.ok:
@@ -119,11 +124,12 @@ class Besmart(object):
         try:
             if self._device:
                 resp = self._s.post(
-                        self.BASE_URL + self.ROOM_LIST.format(self._device.get('deviceId')),
-                        timeout=self._timeout)
+                    self.BASE_URL + self.ROOM_LIST.format(self._device.get('deviceId')),
+                    timeout=self._timeout)
                 if resp.ok:
                     self._lastupdate = datetime.now()
-                    self._rooms = dict((y.get('name').lower(), y) for y in filter(lambda x: x.get('id') != None, resp.json()))
+                    self._rooms = dict(
+                        (y.get('name').lower(), y) for y in filter(lambda x: x.get('id') != None, resp.json()))
                     return self._rooms
         except requests.exceptions.HTTPError as ex:
             _LOGGER.error(ex)
@@ -135,10 +141,10 @@ class Besmart(object):
         try:
             if self._device:
                 resp = self._s.get(
-                        self.BASE_URL + self.ROOM_DATA.format(
-                            room.get('therId'),
-                            self._device.get('deviceId')),
-                        timeout=self._timeout)
+                    self.BASE_URL + self.ROOM_DATA.format(
+                        room.get('therId'),
+                        self._device.get('deviceId')),
+                    timeout=self._timeout)
                 if resp.ok:
                     return resp.json()
         except requests.exceptions.HTTPError as ex:
@@ -150,8 +156,8 @@ class Besmart(object):
         self.login()
         try:
             resp = self._s.get(
-                    self.BASE_URL + self.ROOM_PROGRAM.format(room.get('id')),
-                    timeout=self._timeout)
+                self.BASE_URL + self.ROOM_PROGRAM.format(room.get('id')),
+                timeout=self._timeout)
             if resp.ok:
                 return resp.json()
         except requests.exceptions.HTTPError as ex:
@@ -195,7 +201,7 @@ class Besmart(object):
     def setRoomFrostTemp(self, room_name, new_temp):
         return self.setRoomTemp(room_name, new_temp, self.ROOM_FROST_TEMP)
 
-    def setRoomTemp(self, room_name, new_temp, url = None):
+    def setRoomTemp(self, room_name, new_temp, url=None):
         url = url or self.ROOM_TEMP
         room = self.roomByName(room_name)
         new_temp = round(new_temp, 1)
@@ -206,10 +212,10 @@ class Besmart(object):
             tpCInt, tpCIntFloat = self._fahToCent(new_temp).split('.')
 
         data = {
-           'deviceId': self._device.get('deviceId'),
-           'therId': room.get('therId'),
-           'tempSet': tpCInt + "",
-           'tempSetFloat': tpCIntFloat + "",
+            'deviceId': self._device.get('deviceId'),
+            'therId': room.get('therId'),
+            'tempSet': tpCInt + "",
+            'tempSetFloat': tpCIntFloat + "",
         }
         _LOGGER.debug("url: {}".format(self.BASE_URL + url))
         _LOGGER.debug("data: {}".format(data))
@@ -229,16 +235,14 @@ class Thermostat(ClimateDevice):
     """Representation of a Besmart thermostat."""
     # BeSmart thModel = 5
     # BeSmart WorkMode
-    AUTO = 0 # 'Auto'
+    AUTO = 0  # 'Auto'
     MANUAL = 1  # 'Manuale - Confort'
-    ECONOMY = 2 # 'Holiday - Economy'
-    PARTY = 3   # 'Party - Confort'
+    ECONOMY = 2  # 'Holiday - Economy'
+    PARTY = 3  # 'Party - Confort'
     IDLE = 4  # 'Spento - Antigelo'
 
     MODE_HA_TO_BESMART = {
-        STATE_AUTO + ' - Confort': AUTO,
-        STATE_AUTO + ' - Eco': AUTO,
-        STATE_AUTO + ' - NoFrost': AUTO,
+        STATE_AUTO: AUTO,
         STATE_MANUAL: MANUAL,
         STATE_ECO: ECONOMY,
         STATE_IDLE: IDLE
@@ -259,6 +263,11 @@ class Thermostat(ClimateDevice):
     SEASON_HA_TO_BESMART = {
         STATE_COOL: SEASON_WINTER,
         STATE_HEAT: SEASON_SUMMER
+
+    }
+    SEASON_BESMART_TO_HA = {
+        '1': 'WINTER',
+        '0': 'SUMMER'
     }
 
     def __init__(self, name, room, client):
@@ -339,6 +348,7 @@ class Thermostat(ClimateDevice):
             self._heating_state = data.get('heating', '') == '1'
             self._current_state = int(data.get('mode'))
             self._current_unit = data.get('tempUnit')
+            self._season = data.get('season')
 
     @property
     def name(self):
@@ -350,6 +360,8 @@ class Thermostat(ClimateDevice):
         """Return the device specific state attributes."""
         return {
             ATTR_MODE: self._current_state,
+            'current_mode': self.current_mode,
+            'season_mode': self.SEASON_BESMART_TO_HA.get(self._season)
         }
 
     @property
@@ -371,16 +383,22 @@ class Thermostat(ClimateDevice):
         return self.get_target_temperature()
 
     @property
-    def current_operation(self):
+    def current_mode(self):
         """Return the current state of the thermostat."""
         state = self.MODE_BESMART_TO_HA.get(self._current_state, STATE_UNKNOWN)
         if state == 'auto':
             if self._tempSetMark == '2':
-                return state + ' - Confort'
+                return 'Confort'
             elif self._tempSetMark == '1':
-                return state + ' - Eco'
+                return 'Eco'
             else:
-                return state + ' - NoFrost'
+                return 'NoFrost'
+        return state
+
+    @property
+    def current_operation(self):
+        """Return the current state of the thermostat."""
+        state = self.MODE_BESMART_TO_HA.get(self._current_state, STATE_UNKNOWN)
         return state
 
     @property

@@ -4,6 +4,8 @@ Heating:
   entities:
     - binary_sensor.heating
     - climate.besmart_thermostat
+    - sensor.temperature_mode
+    - sensor.season_mode
 
 cucina:
  name: Cucina
@@ -20,4 +22,3 @@ giardino:
     - sensor.temperatura_giardino
     - switch.pompa
     - sensor.umidita_giardino
-

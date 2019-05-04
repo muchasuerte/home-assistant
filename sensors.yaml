@@ -48,3 +48,11 @@
   unit_of_measurement: '%'
   icon: mdi:water-percent
 
+- platform: template
+  sensors:
+      temperature_mode:
+        friendly_name: "Temperature mode"
+        value_template: "{{ state_attr('climate.besmart_thermostat', 'current_mode') }}"
+      season_mode:
+        friendly_name: "Season mode"
+        value_template: "{{ state_attr('climate.besmart_thermostat', 'season_mode') }}"
