@@ -24,7 +24,7 @@ config:
 
 http:
   # Secrets are defined in the file secrets.yaml
-  api_password: !secret http_password
+  # api_password: !secret http_password
   # Uncomment this if you are using SSL/TLS, running in Docker container, etc.
   # base_url: example.duckdns.org:8123
 
@@ -85,11 +85,12 @@ binary_sensor:
 
 logger:
   default: info
+
   logs:
     homeassistant.core: debug
     asyncio: debug
-    custom_components.climate.besmart: debug
-
+    custom_components.besmart.climate: debug
+    homeassistant.components.camera.generic: debug
 
 history_graph:
   gr1:
@@ -109,7 +110,7 @@ mqtt:
 duckdns:
   domain: !secret duckdns_domain
   access_token: !secret duckdns_token
- 
+
 ##########################
 # Includes
 ##########################
@@ -121,3 +122,12 @@ script: !include scripts.yaml
 zwave:
   usb_path: /dev/zwave
   network_key: !secret zwave_network_key
+
+# Example configuration.yaml entry
+camera:
+  - platform: generic
+    username: !secret camera_1_username
+    password: !secret camera_1_password
+    still_image_url: http://192.168.1.13/Streaming/Channels/1/picture
+    stream_source: rtsp://192.168.1.13/Streaming/Channels/101
+    verify_ssl: false
