@@ -45,11 +45,59 @@
   sensors:
       temperature_mode:
         friendly_name: "Temperature mode"
+        entity_id:
+          - climate.besmart_thermostat
         value_template: "{{ state_attr('climate.besmart_thermostat', 'current_mode') }}"
       season_mode:
         friendly_name: "Season mode"
+        entity_id:
+          - climate.besmart_thermostat
         value_template: "{{ state_attr('climate.besmart_thermostat', 'season_mode') }}"
-      battery_state:
-        friendly_name: "battery state"
-        value_template: "{{ state_attr('climate.besmart_thermostat', 'battery_state') }}"
-        icon_template: mdi:battery
+      total_power_usage:
+        friendly_name: 'Total power usage'
+        entity_id:
+          - sensor.qubino_zmnhbdx_flush_2_relays_power_9
+          - sensor.qubino_zmnhbdx_flush_2_relays_power_8
+          - sensor.qubino_zmnhbdx_flush_2_relays_power_7
+          - sensor.qubino_zmnhbdx_flush_2_relays_power_6
+          - sensor.qubino_zmnhbdx_flush_2_relays_power_5
+          - sensor.qubino_zmnhbdx_flush_2_relays_power_4
+          - sensor.qubino_zmnhbdx_flush_2_relays_power_3
+          - sensor.qubino_zmnhbdx_flush_2_relays_power_2
+          - sensor.qubino_zmnhbdx_flush_2_relays_power
+        value_template: >
+          {{ (
+              (state_attr('sensor.qubino_zmnhbdx_flush_2_relays_power_9', 'power_consumption') | float) +
+              (state_attr('sensor.qubino_zmnhbdx_flush_2_relays_power_8', 'power_consumption') | float) +
+              (state_attr('sensor.qubino_zmnhbdx_flush_2_relays_power_7', 'power_consumption') | float) +
+              (state_attr('sensor.qubino_zmnhbdx_flush_2_relays_power_6', 'power_consumption') | float) +
+              (state_attr('sensor.qubino_zmnhbdx_flush_2_relays_power_5', 'power_consumption') | float) +
+              (state_attr('sensor.qubino_zmnhbdx_flush_2_relays_power_4', 'power_consumption') | float) +
+              (state_attr('sensor.qubino_zmnhbdx_flush_2_relays_power_3', 'power_consumption') | float) +
+              (state_attr('sensor.qubino_zmnhbdx_flush_2_relays_power_2', 'power_consumption') | float) +
+              (state_attr('sensor.qubino_zmnhbdx_flush_2_relays_power', 'power_consumption') | float) ) | round(1) }}
+        unit_of_measurement: 'w'
+      total_energy_usage:
+        friendly_name: 'Total energy usage'
+        entity_id:
+          - sensor.qubino_zmnhbdx_flush_2_relays_power_9
+          - sensor.qubino_zmnhbdx_flush_2_relays_power_8
+          - sensor.qubino_zmnhbdx_flush_2_relays_power_7
+          - sensor.qubino_zmnhbdx_flush_2_relays_power_6
+          - sensor.qubino_zmnhbdx_flush_2_relays_power_5
+          - sensor.qubino_zmnhbdx_flush_2_relays_power_4
+          - sensor.qubino_zmnhbdx_flush_2_relays_power_3
+          - sensor.qubino_zmnhbdx_flush_2_relays_power_2
+          - sensor.qubino_zmnhbdx_flush_2_relays_power
+        value_template: >
+          {{ (
+              (state_attr('sensor.qubino_zmnhbdx_flush_2_relays_energy_9', 'power_consumption') | float) +
+              (state_attr('sensor.qubino_zmnhbdx_flush_2_relays_energy_8', 'power_consumption') | float) +
+              (state_attr('sensor.qubino_zmnhbdx_flush_2_relays_energy_7', 'power_consumption') | float) +
+              (state_attr('sensor.qubino_zmnhbdx_flush_2_relays_energy_6', 'power_consumption') | float) +
+              (state_attr('sensor.qubino_zmnhbdx_flush_2_relays_energy_5', 'power_consumption') | float) +
+              (state_attr('sensor.qubino_zmnhbdx_flush_2_relays_energy_4', 'power_consumption') | float) +
+              (state_attr('sensor.qubino_zmnhbdx_flush_2_relays_energy_3', 'power_consumption') | float) +
+              (state_attr('sensor.qubino_zmnhbdx_flush_2_relays_energy_2', 'power_consumption') | float) +
+              (state_attr('sensor.qubino_zmnhbdx_flush_2_relays_energy', 'power_consumption') | float) ) | round(1) }}
+        unit_of_measurement: 'w'

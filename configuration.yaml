@@ -12,6 +12,7 @@ homeassistant:
   time_zone: Europe/Rome
   # Customization file
   customize: !include customize.yaml
+  customize_glob: !include customize_glob.yaml
 
 # Show links to resources in log and frontend
 # introduction:
@@ -27,6 +28,13 @@ http:
   # api_password: !secret http_password
   # Uncomment this if you are using SSL/TLS, running in Docker container, etc.
   # base_url: example.duckdns.org:8123
+  ssl_certificate: /home/homeassistant/certs/fullchain.pem
+  ssl_key: /home/homeassistant/certs/privkey.pem
+  base_url: !secret my_base_url
+  ip_ban_enabled: true
+  login_attempts_threshold: 5
+  cors_allowed_origins:
+    - https://google.com
 
 # Checks for available updates
 # Note: This component will send some information about your system to
@@ -38,10 +46,10 @@ updater:
   # include_used_components: true
 
 # Discover some devices automatically
-#discovery:
+# discovery:
 
 # Allows you to issue voice commands from the frontend in enabled browsers
-conversation:
+# conversation:
 
 # Enables support for tracking state changes over time
 history:
@@ -53,6 +61,9 @@ recorder:
 
 # View all events in a logbook
 logbook:
+
+# Enables a the System Health integration provides an API to offer information on the system and its components.
+system_health:
 
 # Enables a map showing the location of tracked devices
 map:
@@ -77,10 +88,15 @@ climate:
 
 binary_sensor:
   - platform: template
-    sensors:
+    sensors: # https://www.home-assistant.io/components/binary_sensor/
       heating:
         friendly_name: "Heating"
         value_template: "{{ is_state('climate.besmart_thermostat', 'on') }}"
+      battery_state:
+        friendly_name: "battery state"
+        device_class: battery
+        value_template: "{{ state_attr('climate.besmart_thermostat', 'battery_state') == '1' }}"
+        icon_template: mdi:battery
 
 logger:
   default: info
@@ -106,9 +122,9 @@ history_graph:
 mqtt:
   password: !secret mqtt_password
 
-duckdns:
-  domain: !secret duckdns_domain
-  access_token: !secret duckdns_token
+#duckdns:
+#  domain: !secret duckdns_domain
+#  access_token: !secret duckdns_token
 
 ##########################
 # Includes
@@ -130,3 +146,21 @@ camera:
     still_image_url: http://192.168.1.13/Streaming/Channels/1/picture
     stream_source: rtsp://192.168.1.13/Streaming/Channels/101
     verify_ssl: false
+
+google_assistant:
+  project_id: !secret google_assistant_project_id
+  api_key: !secret google_assistant_api_key
+  exposed_domains:
+    - switch
+    - light
+  entity_config:
+    group.all_automations:
+      expose: false
+
+utility_meter:
+  daily_energy:
+    source: sensor.total_power_usage
+    cycle: daily
+  monthly_energy:
+    source: sensor.total_power_usage
+    cycle: monthly
