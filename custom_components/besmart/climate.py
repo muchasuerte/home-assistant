@@ -29,12 +29,11 @@ import voluptuous as vol
 
 from homeassistant.components.climate import (ClimateDevice, PLATFORM_SCHEMA)
 from homeassistant.components.climate.const import (ATTR_TARGET_TEMP_HIGH,
-                                                    STATE_AUTO, STATE_IDLE, STATE_MANUAL, STATE_ECO, STATE_COOL,
-                                                    STATE_HEAT, ATTR_TARGET_TEMP_LOW,
-                                                    SUPPORT_TARGET_TEMPERATURE, SUPPORT_AWAY_MODE,
-                                                    SUPPORT_OPERATION_MODE, ATTR_OPERATION_LIST, SUPPORT_FAN_MODE,
-                                                    SUPPORT_AUX_HEAT, SUPPORT_TARGET_TEMPERATURE_HIGH,
-                                                    SUPPORT_TARGET_TEMPERATURE_LOW)
+                                                    CURRENT_HVAC_OFF, CURRENT_HVAC_HEAT, CURRENT_HVAC_COOL,
+                                                    HVAC_MODE_AUTO, HVAC_MODE_OFF, HVAC_MODE_COOL,
+                                                    HVAC_MODE_HEAT, SUPPORT_TARGET_TEMPERATURE,
+                                                    SUPPORT_PRESET_MODE)
+
 from homeassistant.const import (CONF_NAME, CONF_USERNAME, CONF_PASSWORD, CONF_ROOM, ATTR_STATE,
                                  TEMP_CELSIUS, ATTR_TEMPERATURE, TEMP_FAHRENHEIT)
 
@@ -61,11 +60,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_ROOM): cv.string,
 })
 
-SUPPORT_FLAGS = (SUPPORT_TARGET_TEMPERATURE | SUPPORT_OPERATION_MODE)
-
-
-#            SUPPORT_TARGET_TEMPERATURE_HIGH | SUPPORT_TARGET_TEMPERATURE_LOW |
-#            SUPPORT_AWAY_MODE)
+SUPPORT_FLAGS = (SUPPORT_TARGET_TEMPERATURE | SUPPORT_PRESET_MODE)
 
 
 # pylint: disable=unused-argument
@@ -241,30 +236,33 @@ class Thermostat(ClimateDevice):
     PARTY = 3  # 'Party - Confort'
     IDLE = 4  # 'Spento - Antigelo'
 
-    MODE_HA_TO_BESMART = {
-        STATE_AUTO: AUTO,
-        STATE_MANUAL: MANUAL,
-        STATE_ECO: ECONOMY,
-        STATE_IDLE: IDLE
+    PRESET_HA_TO_BESMART = {
+        "AUTO": AUTO,
+        "MANUAL": MANUAL,
+        "ECO": ECONOMY,
+        "PARTY": PARTY,
+        "IDLE": IDLE
     }
 
-    MODE_BESMART_TO_HA = {
-        AUTO: STATE_AUTO,
-        MANUAL: STATE_MANUAL,
-        ECONOMY: STATE_ECO,
-        PARTY: STATE_MANUAL,
-        IDLE: STATE_IDLE
+    PRESET_BESMART_TO_HA = {
+        AUTO: "AUTO",
+        MANUAL: "MANUAL",
+        ECONOMY: "ECO",
+        PARTY: "PARTY",
+        IDLE: "OFF"
     }
-    HA_OP_LIST = list(MODE_HA_TO_BESMART)
+    PRESET_MODE_LIST = list(PRESET_HA_TO_BESMART)
+
+    HVAC_MODE_LIST = (
+        HVAC_MODE_COOL,
+        HVAC_MODE_HEAT
+    )
+    HVAC_MODE_BESMART_TO_HA = {
+        '1': HVAC_MODE_HEAT,
+        '0': HVAC_MODE_COOL
+    }
 
     # BeSmart Season
-    SEASON_WINTER = 0
-    SEASON_SUMMER = 1
-    SEASON_HA_TO_BESMART = {
-        STATE_COOL: SEASON_WINTER,
-        STATE_HEAT: SEASON_SUMMER
-
-    }
     SEASON_BESMART_TO_HA = {
         '1': 'WINTER',
         '0': 'SUMMER'
@@ -281,7 +279,7 @@ class Thermostat(ClimateDevice):
         self._current_unit = 0
         self._tempSetMark = 0
         self._heating_state = False
-        self._battery = 0
+        self._battery = '0'
         self._frostT = 0
         self._saveT = 0
         self._comfT = 0
@@ -340,7 +338,7 @@ class Thermostat(ClimateDevice):
             del data['programWeek']
             _LOGGER.debug(data)
             self._tempSetMark = programWeek[today][index]
-            self._battery = data.get('battery', 0)
+            self._battery = data.get('bat', '0')
             self._frostT = float(data.get('frostT'))
             self._saveT = float(data.get('saveT'))
             self._comfT = float(data.get('comfT'))
@@ -361,6 +359,10 @@ class Thermostat(ClimateDevice):
         return {
             ATTR_MODE: self._current_state,
             'current_mode': self.current_mode,
+            'battery_state': self._battery,
+            'frost_t': self._frostT,
+            'confort_t': self._comfT,
+            'save_t': self._saveT,
             'season_mode': self.SEASON_BESMART_TO_HA.get(self._season)
         }
 
@@ -385,8 +387,8 @@ class Thermostat(ClimateDevice):
     @property
     def current_mode(self):
         """Return the current state of the thermostat."""
-        state = self.MODE_BESMART_TO_HA.get(self._current_state, STATE_UNKNOWN)
-        if state == 'auto':
+        state = self.PRESET_BESMART_TO_HA.get(self._current_state, "IDLE")
+        if state == 'AUTO':
             if self._tempSetMark == '2':
                 return 'Confort'
             elif self._tempSetMark == '1':
@@ -396,22 +398,49 @@ class Thermostat(ClimateDevice):
         return state
 
     @property
-    def current_operation(self):
-        """Return the current state of the thermostat."""
-        state = self.MODE_BESMART_TO_HA.get(self._current_state, STATE_UNKNOWN)
-        return state
+    def hvac_mode(self):
+        """Current mode."""
+        return self.HVAC_MODE_BESMART_TO_HA.get(self._season)
 
     @property
-    def operation_list(self):
-        """List of available operation modes."""
-        return self.HA_OP_LIST
+    def hvac_action(self):
+        """Current mode."""
+        if self._heating_state:
+            mode = self.hvac_mode
+            if mode == HVAC_MODE_HEAT:
+                return CURRENT_HVAC_HEAT
+            else:
+                return CURRENT_HVAC_COOL
+        else:
+            return CURRENT_HVAC_OFF
 
-    def set_operation_mode(self, operation_mode):
+    @property
+    def hvac_modes(self):
+        """List of available operation modes."""
+        return self.HVAC_MODE_LIST
+
+    def set_hvac_mode(self, hvac_mode):
+        """Set HVAC mode (COOL, HEAT)."""
+        return
+
+    @property
+    def preset_mode(self):
+        """List of supported preset (comfort, home, sleep, Party, Off)."""
+
+        return self.PRESET_BESMART_TO_HA.get(self._current_state, "IDLE")
+
+    @property
+    def preset_modes(self):
+        """List of supported preset (comfort, home, sleep, Party, Off)."""
+
+        return self.PRESET_MODE_LIST
+
+    def set_preset_mode(self, preset_mode):
         """Set HVAC mode (comfort, home, sleep, Party, Off)."""
 
-        mode = self.MODE_HA_TO_BESMART.get(operation_mode, self.AUTO)
+        mode = self.PRESET_HA_TO_BESMART.get(preset_mode, self.AUTO)
         self._cl.setRoomMode(self._room_name, mode)
-        _LOGGER.debug("Set operation mode=%s(%s)", str(operation_mode), str(mode))
+        _LOGGER.debug("Set operation mode=%s(%s)", str(preset_mode), str(mode))
 
     def set_temperature(self, **kwargs):
         """Set new target temperature."""

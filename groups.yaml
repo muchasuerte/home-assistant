@@ -6,6 +6,7 @@ Heating:
     - climate.besmart_thermostat
     - sensor.temperature_mode
     - sensor.season_mode
+    - sensor.battery_state
 
 cucina:
  name: Cucina

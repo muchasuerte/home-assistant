@@ -35,13 +35,6 @@
   name: "Temperatura Giardino"
   unit_of_measurement: '°C'
 
-# platform: template
-#  sensors:
-#    solar_angle:
-#   friendly_name: "Sun angle"
-#    unit_of_measurement: 'degrees'
-#    value_template: "{{ states.sun.sun.attributes.elevation }}"
-
 - platform: mqtt
   state_topic: "/home/garden/humidity"
   name: "Umidità Giardino"
@@ -56,3 +49,7 @@
       season_mode:
         friendly_name: "Season mode"
         value_template: "{{ state_attr('climate.besmart_thermostat', 'season_mode') }}"
+      battery_state:
+        friendly_name: "battery state"
+        value_template: "{{ state_attr('climate.besmart_thermostat', 'battery_state') }}"
+        icon_template: mdi:battery
