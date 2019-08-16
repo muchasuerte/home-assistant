@@ -249,7 +249,7 @@ class Thermostat(ClimateDevice):
         MANUAL: "MANUAL",
         ECONOMY: "ECO",
         PARTY: "PARTY",
-        IDLE: "OFF"
+        IDLE: "IDLE"
     }
     PRESET_MODE_LIST = list(PRESET_HA_TO_BESMART)
 
