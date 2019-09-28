@@ -125,6 +125,7 @@ class Besmart(object):
                     self._lastupdate = datetime.now()
                     self._rooms = dict(
                         (y.get('name').lower(), y) for y in filter(lambda x: x.get('id') != None, resp.json()))
+                    _LOGGER.debug("rooms: {}".format(self._rooms))
                     return self._rooms
         except Exception as ex:
             _LOGGER.warning(ex)
@@ -285,6 +286,7 @@ class Thermostat(ClimateDevice):
         self._frostT = 0
         self._saveT = 0
         self._comfT = 0
+        self._season = '1'
         self.update()
 
     @property

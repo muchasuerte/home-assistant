@@ -37,3 +37,26 @@
 
     source /srv/homeassistant/bin/activate
     pip3 install --upgrade homeassistant
+
+## Install deConz
+
+    wget -O - http://phoscon.de/apt/deconz.pub.key | \
+           sudo apt-key add -
+
+    sudo sh -c "echo 'deb http://phoscon.de/apt/deconz \
+            $(lsb_release -cs) main' > \
+            /etc/apt/sources.list.d/deconz.list"
+
+    sudo apt update
+
+    sudo apt install deconz
+
+### Start headless mode
+    systemctl enable deconz
+
+### Logs
+
+### rif.
+ [0] https://github.com/dresden-elektronik/deconz-rest-plugin/wiki/Supported-Devices
+ [1] https://github.com/sclukey/rmate-python
+
