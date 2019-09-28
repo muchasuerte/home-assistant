@@ -109,8 +109,8 @@ class Besmart(object):
                 'version': '32'}, timeout=self._timeout)
             if resp.ok:
                 self._device = resp.json()
-        except requests.exceptions.HTTPError as ex:
-            _LOGGER.error(ex)
+        except Exception as ex:
+            _LOGGER.warning(ex)
             self._device = None
 
     def rooms(self):
@@ -126,9 +126,10 @@ class Besmart(object):
                     self._rooms = dict(
                         (y.get('name').lower(), y) for y in filter(lambda x: x.get('id') != None, resp.json()))
                     return self._rooms
-        except requests.exceptions.HTTPError as ex:
-            _LOGGER.error(ex)
+        except Exception as ex:
+            _LOGGER.warning(ex)
             self._device = None
+
         return None
 
     def roomdata(self, room):
@@ -142,9 +143,10 @@ class Besmart(object):
                     timeout=self._timeout)
                 if resp.ok:
                     return resp.json()
-        except requests.exceptions.HTTPError as ex:
-            _LOGGER.error(ex)
+        except Exception as ex:
+            _LOGGER.warning(ex)
             self._device = None
+
         return None
 
     def program(self, room):
@@ -155,8 +157,8 @@ class Besmart(object):
                 timeout=self._timeout)
             if resp.ok:
                 return resp.json()
-        except requests.exceptions.HTTPError as ex:
-            _LOGGER.error(ex)
+        except Exception as ex:
+            _LOGGER.warning(ex)
             self._device = None
         return None
 
