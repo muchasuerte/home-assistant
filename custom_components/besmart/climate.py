@@ -27,12 +27,12 @@ import logging
 from datetime import datetime, timedelta
 import voluptuous as vol
 
-from homeassistant.components.climate import (ClimateDevice, PLATFORM_SCHEMA)
+from homeassistant.components.climate import (ClimateDevice, PLATFORM_SCHEMA, ATTR_TARGET_TEMP_LOW)
 from homeassistant.components.climate.const import (ATTR_TARGET_TEMP_HIGH,
                                                     CURRENT_HVAC_OFF, CURRENT_HVAC_HEAT, CURRENT_HVAC_COOL,
                                                     HVAC_MODE_AUTO, HVAC_MODE_OFF, HVAC_MODE_COOL,
                                                     HVAC_MODE_HEAT, SUPPORT_TARGET_TEMPERATURE,
-                                                    SUPPORT_PRESET_MODE)
+                                                    SUPPORT_PRESET_MODE, SUPPORT_TARGET_TEMPERATURE_RANGE)
 
 from homeassistant.const import (CONF_NAME, CONF_USERNAME, CONF_PASSWORD, CONF_ROOM, ATTR_STATE,
                                  TEMP_CELSIUS, ATTR_TEMPERATURE, TEMP_FAHRENHEIT)
@@ -60,7 +60,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_ROOM): cv.string,
 })
 
-SUPPORT_FLAGS = (SUPPORT_TARGET_TEMPERATURE | SUPPORT_PRESET_MODE)
+SUPPORT_FLAGS = (SUPPORT_TARGET_TEMPERATURE | SUPPORT_PRESET_MODE | SUPPORT_TARGET_TEMPERATURE_RANGE)
 
 
 # pylint: disable=unused-argument
@@ -204,14 +204,15 @@ class Besmart(object):
         room = self.roomByName(room_name)
         new_temp = round(new_temp, 1)
 
-        if room.get('unit') == '0':
+        if room.get('tempUnit') == '0':
             tpCInt, tpCIntFloat = str(new_temp).split('.')
         else:
             tpCInt, tpCIntFloat = self._fahToCent(new_temp).split('.')
+        _LOGGER.debug("setRoomTemp: {} - {} - {}".format(new_temp, tpCInt, tpCIntFloat))
 
         data = {
             'deviceId': self._device.get('deviceId'),
-            'therId': room.get('therId'),
+            'therId': room.get('roomMark'),
             'tempSet': tpCInt + "",
             'tempSetFloat': tpCIntFloat + "",
         }
@@ -290,6 +291,19 @@ class Thermostat(ClimateDevice):
         self.update()
 
     @property
+    def target_temperature(self):
+        """Return the temperature we try to reach."""
+        return self._frostT
+
+    @property
+    def target_temperature_high(self):
+        return self._comfT
+
+    @property
+    def target_temperature_low(self):
+        return self._saveT
+
+    @property
     def target_temperature_step(self):
         """Return the supported step of target temperature."""
         return 0.2
@@ -314,6 +328,10 @@ class Thermostat(ClimateDevice):
         return SUPPORT_FLAGS
 
     def get_target_temperature(self):
+        """
+        To get the tartget temperature using the Preset info
+        :return:
+        """
         if self._current_state == self.AUTO:
             if self._tempSetMark == '2':
                 return self._comfT
@@ -332,16 +350,22 @@ class Thermostat(ClimateDevice):
         """Update the data from the thermostat."""
         _LOGGER.debug("Update called")
         data = self._cl.roomByName(self._room_name)
+        _LOGGER.debug(data)
         if data and data.get('error') == 0:
-            # from Sunday (0) to Saturday (6)
-            today = datetime.today().isoweekday() % 7
-            # 48 slot per day
-            index = datetime.today().hour * 2 + (1 if datetime.today().minute > 30 else 0)
-            programWeek = data['programWeek']
-            # delete programWeek to have less noise on debug output
-            del data['programWeek']
-            _LOGGER.debug(data)
-            self._tempSetMark = programWeek[today][index]
+            try:
+                # from Sunday (0) to Saturday (6)
+                today = datetime.today().isoweekday() % 7
+                # 48 slot per day
+                index = datetime.today().hour * 2 + (1 if datetime.today().minute > 30 else 0)
+                programWeek = data['programWeek']
+                # delete programWeek to have less noise on debug output
+                del data['programWeek']
+
+                self._tempSetMark = programWeek[today][index]
+            except Exception as ex:
+                _LOGGER.warning(ex)
+                self._tempSetMark = '2'
+
             self._battery = data.get('bat', '0')
             self._frostT = float(data.get('frostT'))
             self._saveT = float(data.get('saveT'))
@@ -382,11 +406,6 @@ class Thermostat(ClimateDevice):
     def current_temperature(self):
         """Return the current temperature."""
         return self._current_temp
-
-    @property
-    def target_temperature(self):
-        """Return the temperature we try to reach."""
-        return self.get_target_temperature()
 
     @property
     def current_mode(self):
@@ -449,20 +468,13 @@ class Thermostat(ClimateDevice):
     def set_temperature(self, **kwargs):
         """Set new target temperature."""
         temperature = kwargs.get(ATTR_TEMPERATURE)
-        _LOGGER.debug("Set temperature=%s", str(temperature))
-        if temperature is None:
-            return
-        else:
-            if self._current_state == self.AUTO:
-                if self._tempSetMark == '2':
-                    self._cl.setRoomConfortTemp(self._room_name, temperature)
-                elif self._tempSetMark == '1':
-                    self._cl.setRoomECOTemp(self._room_name, temperature)
-                else:
-                    self._cl.setRoomFrostTemp(self._room_name, temperature)
-            elif self._current_state in (self.MANUAL, self.PARTY):
-                self._cl.setRoomConfortTemp(self._room_name, temperature)
-            elif self._current_state == self.ECONOMY:
-                self._cl.setRoomECOTemp(self._room_name, temperature)
-            else:
-                self._cl.setRoomFrostTemp(self._room_name, temperature)
+        target_temp_high = kwargs.get(ATTR_TARGET_TEMP_HIGH)
+        target_temp_low = kwargs.get(ATTR_TARGET_TEMP_LOW)
+
+        _LOGGER.debug("temperature Frost: {} Eco: {} Conf: {}".format(temperature, target_temp_low, target_temp_high))
+        if temperature:
+            self._cl.setRoomFrostTemp(self._room_name, temperature)
+        if target_temp_high:
+            self._cl.setRoomConfortTemp(self._room_name, target_temp_high)
+        if target_temp_low:
+            self._cl.setRoomECOTemp(self._room_name, target_temp_low)
