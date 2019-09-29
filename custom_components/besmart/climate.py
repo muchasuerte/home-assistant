@@ -309,14 +309,6 @@ class Thermostat(ClimateDevice):
         return 0.2
 
     @property
-    def state(self):
-        """Return the state of the thermostat."""
-        if self._heating_state:
-            return STATE_ON
-
-        return STATE_OFF
-
-    @property
     def should_poll(self):
         """Polling needed for thermostat."""
         _LOGGER.debug("Should_Poll called")
@@ -386,7 +378,6 @@ class Thermostat(ClimateDevice):
         """Return the device specific state attributes."""
         return {
             ATTR_MODE: self._current_state,
-            'current_mode': self.current_mode,
             'battery_state': self._battery,
             'frost_t': self._frostT,
             'confort_t': self._comfT,
@@ -406,19 +397,6 @@ class Thermostat(ClimateDevice):
     def current_temperature(self):
         """Return the current temperature."""
         return self._current_temp
-
-    @property
-    def current_mode(self):
-        """Return the current state of the thermostat."""
-        state = self.PRESET_BESMART_TO_HA.get(self._current_state, "IDLE")
-        if state == 'AUTO':
-            if self._tempSetMark == '2':
-                return 'Confort'
-            elif self._tempSetMark == '1':
-                return 'Eco'
-            else:
-                return 'NoFrost'
-        return state
 
     @property
     def hvac_mode(self):
