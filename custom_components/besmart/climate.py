@@ -85,6 +85,8 @@ class Besmart(object):
     ROOM_ECON_TEMP = 'setEconTemp.php'
     ROOM_FROST_TEMP = 'setFrostTemp.php'
     ROOM_CONF_TEMP = 'setComfTemp.php'
+    GET_SETTINGS = 'getSetting.php'
+    SET_SETTINGS = 'setSetting.php'
 
     def __init__(self, username, password):
         """Initialize the thermostat."""
@@ -227,6 +229,58 @@ class Besmart(object):
 
         return None
 
+    def getSettings(self, room_name):
+        room = self.roomByName(room_name)
+
+        if self._device and room:
+            data = {
+                'deviceId': self._device.get('deviceId'),
+                'therId': room.get('roomMark')
+            }
+
+            resp = self._s.post(self.BASE_URL + self.GET_SETTINGS,
+                                data=data, timeout=self._timeout)
+            if resp.ok:
+                msg = resp.json()
+                _LOGGER.debug("resp: {}".format(msg))
+                if msg.get('error') == 0:
+                    return msg
+
+        return None
+
+    def setSettings(self, room_name, season):
+        room = self.roomByName(room_name)
+
+        if self._device and room:
+            old_data = self.getSettings(room_name)
+            if old_data.get('error') == 0:
+                min_temp_set_point_ip, min_temp_set_point_fp = str(old_data.get("minTempSetPoint", "30.0")).split('.')
+                max_temp_set_point_ip, max_temp_set_point_fp = str(old_data.get("maxTempSetPoint", "30.0")).split('.')
+                temp_curver_ip, temp_curver_fp = str(old_data.get("tempCurver", "0.0")).split('.')
+                data = {
+                    'deviceId': self._device.get('deviceId'),
+                    'therId': room.get('roomMark'),
+                    'minTempSetPointIP': min_temp_set_point_ip,
+                    'minTempSetPointFP': min_temp_set_point_fp,
+                    'maxTempSetPointIP': max_temp_set_point_ip,
+                    'maxTempSetPointFP': max_temp_set_point_fp,
+                    'sensorInfluence': old_data.get("sensorInfluence", "0"),
+                    'tempCurveIP': temp_curver_ip,
+                    'tempCurveFP': temp_curver_fp,
+                    'unit': old_data.get('unit', '0'),
+                    'season': season,
+                    'boilerIsOnline': old_data.get('boilerIsOnline', '0')
+                }
+
+                resp = self._s.post(self.BASE_URL + self.SET_SETTINGS,
+                                    data=data, timeout=self._timeout)
+                if resp.ok:
+                    msg = resp.json()
+                    _LOGGER.debug("resp: {}".format(msg))
+                    if msg.get('error') == 0:
+                        return msg
+        return None
+
 
 # pylint: disable=abstract-method
 # pylint: disable=too-many-instance-attributes
@@ -267,9 +321,9 @@ class Thermostat(ClimateDevice):
     }
 
     # BeSmart Season
-    SEASON_BESMART_TO_HA = {
-        '1': 'WINTER',
-        '0': 'SUMMER'
+    HVAC_MODE_HA_BESMART = {
+        HVAC_MODE_HEAT: '1',
+        HVAC_MODE_COOL: '0'
     }
 
     def __init__(self, name, room, client):
@@ -382,7 +436,7 @@ class Thermostat(ClimateDevice):
             'frost_t': self._frostT,
             'confort_t': self._comfT,
             'save_t': self._saveT,
-            'season_mode': self.SEASON_BESMART_TO_HA.get(self._season)
+            'season_mode': self.hvac_mode
         }
 
     @property
@@ -422,7 +476,9 @@ class Thermostat(ClimateDevice):
 
     def set_hvac_mode(self, hvac_mode):
         """Set HVAC mode (COOL, HEAT)."""
-        return
+        mode = self.HVAC_MODE_HA_BESMART.get(hvac_mode)
+        self._cl.setSettings(self._room_name, mode)
+        _LOGGER.debug("Set hvac_mode hvac_mode=%s(%s)", str(hvac_mode), str(mode))
 
     @property
     def preset_mode(self):
