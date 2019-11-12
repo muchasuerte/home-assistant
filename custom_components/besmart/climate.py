@@ -121,6 +121,7 @@ class Besmart(object):
     def rooms(self):
         if not self._device:
             self.login()
+
         try:
             if self._device:
                 resp = self._s.post(
@@ -131,7 +132,13 @@ class Besmart(object):
                     self._rooms = dict(
                         (y.get('name').lower(), y) for y in filter(lambda x: x.get('id') != None, resp.json()))
                     _LOGGER.debug("rooms: {}".format(self._rooms))
+                    if len(self._rooms) == 0:
+                        self._device = None
+                        return None
+
                     return self._rooms
+                else:
+                    _LOGGER.debug("get rooms failed!")
         except Exception as ex:
             _LOGGER.warning(ex)
             self._device = None
@@ -149,6 +156,8 @@ class Besmart(object):
                     timeout=self._timeout)
                 if resp.ok:
                     return resp.json()
+                else:
+                    _LOGGER.debug("refresh roomdata failed for: {}".format(room))
         except Exception as ex:
             _LOGGER.warning(ex)
             self._device = None
@@ -170,6 +179,7 @@ class Besmart(object):
 
     def roomByName(self, name):
         if datetime.now() - self._lastupdate > timedelta(seconds=120):
+            _LOGGER.debug("refresh rooms state")
             self.rooms()
 
         if self._rooms:
@@ -207,13 +217,15 @@ class Besmart(object):
     def setRoomTemp(self, room_name, new_temp, url=None):
         url = url or self.ROOM_TEMP
         room = self.roomByName(room_name)
-        if room:
+        if room and self._device.get('deviceId'):
             new_temp = round(new_temp, 1)
+            _LOGGER.debug("room: {}".format(room))
 
-            if room.get('tempUnit') == '0':
+            if room.get('tempUnit') in {'N/A', '0'}:
                 tpCInt, tpCIntFloat = str(new_temp).split('.')
             else:
                 tpCInt, tpCIntFloat = self._fahToCent(new_temp).split('.')
+
             _LOGGER.debug("setRoomTemp: {} - {} - {}".format(new_temp, tpCInt, tpCIntFloat))
 
             data = {
@@ -426,20 +438,20 @@ class Thermostat(ClimateDevice):
             try:
                 self._frostT = float(data.get('frostT'))
             except ValueError:
-                self._frostT = 0.0
+                self._frostT = 5.0
             try:
                 self._saveT = float(data.get('saveT'))
             except ValueError:
-                self._saveT = 0.0
+                self._saveT = 16.0
 
             try:
                 self._comfT = float(data.get('comfT'))
             except ValueError:
-                self._comfT = 0.0
+                self._comfT = 20.0
             try:
                 self._current_temp = float(data.get('tempNow'))
             except ValueError:
-                self._current_temp = 0.0
+                self._current_temp = 20.0
 
             self._heating_state = data.get('heating', '') == '1'
             try:
