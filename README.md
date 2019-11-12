@@ -15,6 +15,7 @@
     (homeassistant)$ sudo -u homeassistant -s -H pip3 install rmate
 
 ## edit the file on vscode
+    (desktop/laptop)$ ssh -R 52698:localhost:52698 hassbian
     (homeassistant)$ sudo -u homeassistant -s -H    
     (homeassistant)$ export PATH=$HOME/.local/bin:$PATH
     (homeassistant)$ rmate .homeassistant/configuration.yaml
