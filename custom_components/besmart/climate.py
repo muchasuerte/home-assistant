@@ -6,7 +6,10 @@ Be aware the thermostat may require more then 3 minute to refresh its states.
 The thermostats support the season switch however this control will be managed with a 
 different control.
 
-configuration.yaml
+version: 1
+tested with home-assistant >= 0.96
+
+Configuration example:
 
 climate:
   - platform: Besmart
@@ -166,7 +169,7 @@ class Besmart(object):
         return None
 
     def roomByName(self, name):
-        if not self._rooms or datetime.now() - self._lastupdate > timedelta(seconds=120):
+        if datetime.now() - self._lastupdate > timedelta(seconds=120):
             self.rooms()
 
         if self._rooms:
@@ -204,28 +207,31 @@ class Besmart(object):
     def setRoomTemp(self, room_name, new_temp, url=None):
         url = url or self.ROOM_TEMP
         room = self.roomByName(room_name)
-        new_temp = round(new_temp, 1)
+        if room:
+            new_temp = round(new_temp, 1)
 
-        if room.get('tempUnit') == '0':
-            tpCInt, tpCIntFloat = str(new_temp).split('.')
+            if room.get('tempUnit') == '0':
+                tpCInt, tpCIntFloat = str(new_temp).split('.')
+            else:
+                tpCInt, tpCIntFloat = self._fahToCent(new_temp).split('.')
+            _LOGGER.debug("setRoomTemp: {} - {} - {}".format(new_temp, tpCInt, tpCIntFloat))
+
+            data = {
+                'deviceId': self._device.get('deviceId'),
+                'therId': room.get('roomMark'),
+                'tempSet': tpCInt + "",
+                'tempSetFloat': tpCIntFloat + "",
+            }
+            _LOGGER.debug("url: {}".format(self.BASE_URL + url))
+            _LOGGER.debug("data: {}".format(data))
+            resp = self._s.post(self.BASE_URL + url, data=data, timeout=self._timeout)
+            if resp.ok:
+                msg = resp.json()
+                _LOGGER.debug("resp: {}".format(msg))
+                if msg.get('error') == 1:
+                    return True
         else:
-            tpCInt, tpCIntFloat = self._fahToCent(new_temp).split('.')
-        _LOGGER.debug("setRoomTemp: {} - {} - {}".format(new_temp, tpCInt, tpCIntFloat))
-
-        data = {
-            'deviceId': self._device.get('deviceId'),
-            'therId': room.get('roomMark'),
-            'tempSet': tpCInt + "",
-            'tempSetFloat': tpCIntFloat + "",
-        }
-        _LOGGER.debug("url: {}".format(self.BASE_URL + url))
-        _LOGGER.debug("data: {}".format(data))
-        resp = self._s.post(self.BASE_URL + url, data=data, timeout=self._timeout)
-        if resp.ok:
-            msg = resp.json()
-            _LOGGER.debug("resp: {}".format(msg))
-            if msg.get('error') == 1:
-                return True
+            _LOGGER.warning("error on get the room by name: {}".format(room_name))
 
         return None
 
@@ -412,13 +418,34 @@ class Thermostat(ClimateDevice):
                 _LOGGER.warning(ex)
                 self._tempSetMark = '2'
 
-            self._battery = data.get('bat', '0')
-            self._frostT = float(data.get('frostT'))
-            self._saveT = float(data.get('saveT'))
-            self._comfT = float(data.get('comfT'))
-            self._current_temp = float(data.get('tempNow'))
+            try:
+                self._battery = bool(data.get('bat', '0'))
+            except ValueError:
+                self._battery = '0'
+
+            try:
+                self._frostT = float(data.get('frostT'))
+            except ValueError:
+                self._frostT = 0.0
+            try:
+                self._saveT = float(data.get('saveT'))
+            except ValueError:
+                self._saveT = 0.0
+
+            try:
+                self._comfT = float(data.get('comfT'))
+            except ValueError:
+                self._comfT = 0.0
+            try:
+                self._current_temp = float(data.get('tempNow'))
+            except ValueError:
+                self._current_temp = 0.0
+
             self._heating_state = data.get('heating', '') == '1'
-            self._current_state = int(data.get('mode'))
+            try:
+                self._current_state = int(data.get('mode'))
+            except ValueError:
+                self._current_temp = 0
             self._current_unit = data.get('tempUnit')
             self._season = data.get('season')
 
