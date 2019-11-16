@@ -4,14 +4,37 @@ Heating:
   entities:
     - binary_sensor.heating
     - climate.besmart_thermostat
+    - sensor.temperature_mode
+    - sensor.season_mode
+    - binary_sensor.battery_state
 
-cucina:
- name: Cucina
- control: hidden
- entities:
-    - sensor.temperatura_cucina
-    - sensor.umidita_cucina
-    - switch.interruttore_cucina
+PowerConsumption:
+  name: Potenza Consumata
+  control: hidden
+  entities:
+      - sensor.daily_power
+      - sensor.monthly_power
+      - sensor.total_power_usage
+      - sensor.qubino_zmnhbdx_flush_2_relays_power_6
+      - sensor.qubino_zmnhbdx_flush_2_relays_power_5
+      - sensor.qubino_zmnhbdx_flush_2_relays_power_4
+      - sensor.qubino_zmnhbdx_flush_2_relays_power_3
+      - sensor.qubino_zmnhbdx_flush_2_relays_power_2
+      - sensor.qubino_zmnhbdx_flush_2_relays_power
+
+EnergyConsumption:
+  name: Energia Consumata
+  control: hidden
+  entities:
+      - sensor.daily_energy
+      - sensor.monthly_energy
+      - sensor.total_energy_usage
+      - sensor.qubino_zmnhbdx_flush_2_relays_energy_6
+      - sensor.qubino_zmnhbdx_flush_2_relays_energy_5
+      - sensor.qubino_zmnhbdx_flush_2_relays_energy_4
+      - sensor.qubino_zmnhbdx_flush_2_relays_energy_3
+      - sensor.qubino_zmnhbdx_flush_2_relays_energy_2
+      - sensor.qubino_zmnhbdx_flush_2_relays_energy
 
 giardino:
  name: Giardino

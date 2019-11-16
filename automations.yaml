@@ -1,17 +1,140 @@
 - id: start_watering
-  alias: 'Avvio irrigazione giardino'
+  alias: Avvio irrigazione giardino
   trigger:
-   - platform: time
-     at: '07:10:00'
+  - platform: time
+    at: 07:10:00
   action:
-    - service: switch.turn_on
-      entity_id: switch.pompa
+  - service: switch.turn_on
+    entity_id: switch.pompa
 - id: stop_watering
-  alias: 'Stop irrigazione giardino'
+  alias: Stop irrigazione giardino
   trigger:
-    - platform: time
-      at: '07:15:00'
+  - platform: time
+    at: 07:15:00
   action:
-    - service: switch.turn_off
-      entity_id: switch.pompa
-
+  - service: switch.turn_off
+    entity_id: switch.pompa
+- id: '1565971430134'
+  alias: Reset Power Meters
+  trigger:
+  - hours: '0'
+    minutes: '0'
+    platform: time_pattern
+    seconds: '0'
+  condition: []
+  action:
+  - data:
+      node_id: '10'
+    service: zwave.reset_node_meters
+  - data:
+      node_id: '9'
+    service: zwave.reset_node_meters
+  - data:
+      node_id: '4'
+    service: zwave.reset_node_meters
+- id: '1567638094808'
+  alias: Test
+  trigger:
+  - event_data:
+      event: 1002
+      id: tradfri_on_off_switch
+    event_type: deconz_event
+    platform: event
+  condition: []
+  action:
+  - alias: ''
+    data:
+      entity_id: switch.light_2
+    service: switch.toggle
+- id: '1573380711271'
+  alias: AutoOFFCaffettiera
+  description: Spegnimento dopo 7 min della caffettiera
+  trigger:
+  - device_id: 073234062d7e4d6cb410ab58ea777810
+    domain: switch
+    entity_id: switch.presa_caffettiera
+    for:
+      hours: 0
+      minutes: 7
+      seconds: 0
+    platform: device
+    type: turned_on
+  condition: []
+  action:
+  - device_id: 073234062d7e4d6cb410ab58ea777810
+    domain: switch
+    entity_id: switch.presa_caffettiera
+    type: turn_off
+- id: '1573863265299'
+  alias: 'Accensione Luce garage '
+  description: Accensione Luce garage tramite sensore di movimento
+  trigger:
+  - entity_id: binary_sensor.vibration_13
+    from: 'off'
+    platform: state
+    to: 'on'
+  condition: []
+  action:
+  - device_id: 1cd7be7a72c540b7abbbaea4f8300c8a
+    domain: switch
+    entity_id: switch.qubino_zmnhbdx_flush_2_relays_switch_4
+    type: turn_on
+- id: '1573863664846'
+  alias: AutoOFFGarage
+  description: ''
+  trigger:
+  - device_id: 1cd7be7a72c540b7abbbaea4f8300c8a
+    domain: switch
+    entity_id: switch.qubino_zmnhbdx_flush_2_relays_switch_4
+    for:
+      hours: 0
+      minutes: 5
+      seconds: 0
+    platform: device
+    type: turned_on
+  condition: []
+  action:
+  - device_id: 1cd7be7a72c540b7abbbaea4f8300c8a
+    domain: switch
+    entity_id: switch.qubino_zmnhbdx_flush_2_relays_switch_4
+    type: turn_off
+- id: '1573865735274'
+  alias: AutoOFFCorridoio
+  description: ''
+  trigger:
+  - device_id: bf3b52c3c33b4a0ca5678bb2cf82beb7
+    domain: switch
+    entity_id: switch.qubino_zmnhbdx_flush_2_relays_switch_5
+    for:
+      hours: 0
+      minutes: 5
+      seconds: 0
+    platform: device
+    type: turned_on
+  condition: []
+  action:
+  - device_id: bf3b52c3c33b4a0ca5678bb2cf82beb7
+    domain: switch
+    entity_id: switch.qubino_zmnhbdx_flush_2_relays_switch_5
+    type: turn_off
+- id: '1573911373717'
+  alias: AutoOFFCorridoio-disabler
+  description: ''
+  trigger:
+  - entity_id: switch.qubino_zmnhbdx_flush_2_relays_switch_5
+    from: '''off'''
+    platform: state
+    to: '''on'''
+  condition:
+  - condition: template
+    value_template: '{{ (as_timestamp(states.switch.qubino_zmnhbdx_flush_2_relays_switch_5.last_updated)
+      - as_timestamp(state_attr(''automation.autooffcorridoio'',''last_triggered''))
+      ) < 20 }}'
+  action:
+  - data:
+      message: Automation Corridoio disabled
+    service: persistent_notification.create
+  - alias: ''
+    data:
+      entity_id: automation.autooffcorridoio
+    service: automation.turn_off

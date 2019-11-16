@@ -1,5 +1,4 @@
 # Example .gitignore file for your config dir. Lines with ! will not be ignored.
-*
 !*.yaml
 !.gitignore
 *.conf
