@@ -63,7 +63,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_ROOM): cv.string,
 })
 
-SUPPORT_FLAGS = (SUPPORT_TARGET_TEMPERATURE | SUPPORT_PRESET_MODE | SUPPORT_TARGET_TEMPERATURE_RANGE)
+SUPPORT_FLAGS = (SUPPORT_PRESET_MODE | SUPPORT_TARGET_TEMPERATURE_RANGE)
 
 
 # pylint: disable=unused-argument
@@ -95,6 +95,7 @@ class Besmart(object):
         """Initialize the thermostat."""
         self._username = username
         self._password = password
+        self._lastupdate = None
         self._device = None
         self._rooms = None
         self._timeout = 30
@@ -134,6 +135,7 @@ class Besmart(object):
                     _LOGGER.debug("rooms: {}".format(self._rooms))
                     if len(self._rooms) == 0:
                         self._device = None
+                        self._lastupdate = None
                         return None
 
                     return self._rooms
@@ -178,7 +180,7 @@ class Besmart(object):
         return None
 
     def roomByName(self, name):
-        if datetime.now() - self._lastupdate > timedelta(seconds=120):
+        if self._lastupdate is None or datetime.now() - self._lastupdate > timedelta(seconds=120):
             _LOGGER.debug("refresh rooms state")
             self.rooms()
 
@@ -475,7 +477,8 @@ class Thermostat(ClimateDevice):
             'frost_t': self._frostT,
             'confort_t': self._comfT,
             'save_t': self._saveT,
-            'season_mode': self.hvac_mode
+            'season_mode': self.hvac_mode,
+            'heating_state': self._heating_state
         }
 
     @property
@@ -551,3 +554,4 @@ class Thermostat(ClimateDevice):
             self._cl.setRoomConfortTemp(self._room_name, target_temp_high)
         if target_temp_low:
             self._cl.setRoomECOTemp(self._room_name, target_temp_low)
+
