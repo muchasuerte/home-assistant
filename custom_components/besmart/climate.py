@@ -6,7 +6,7 @@ Be aware the thermostat may require more then 3 minute to refresh its states.
 The thermostats support the season switch however this control will be managed with a 
 different control.
 
-version: 1
+version: 2
 tested with home-assistant >= 0.96
 
 Configuration example:
